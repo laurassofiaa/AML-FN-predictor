@@ -13,6 +13,8 @@ A machine learning pipeline for binary classification of febrile neutropenia (FN
 | `AML_XGB_classifier_SHAP_top_variables.ipynb` | Refined XGBoost classifier using the SHAP-selected features, with evaluation, decision curve analysis and regression to event days |
 | `TOP_SHAP_XGBClassifier_plot_function.R` | SHAP summary plots for the top-variable model |
 | `TOPXGB_SHAP_wrongly_classified_density_test.R` | SHAP analysis of misclassified test-set observations, with density plots |
+| `external_validation/test_models.ipynb` | Evaluation of the refined model on the external validation cohort |
+| `external_validation/TOPXGB_SHAP_wrongly_classified_density_test.R` | SHAP analysis of misclassified observations in the external cohort |
 
 ## Running Order
 
@@ -37,7 +39,10 @@ A machine learning pipeline for binary classification of febrile neutropenia (FN
 
 ### Stage 4 -- External validation
 
-Code for the external validation cohort will be added.
+The refined model is tested on an external cohort. These files are in the `external_validation/` folder and use the model saved in Stage 3 (`simple_xgb_model.json`, `simple_features.json`).
+
+7. **`external_validation/test_models.ipynb`** -- Predict on the external cohort and evaluate: AUROC and AUPRC with 95% CI, calibration, decision curve analysis and induction vs. consolidation. Saves `x_test.csv` and `eval_df.csv`.
+8. **`external_validation/TOPXGB_SHAP_wrongly_classified_density_test.R`** -- SHAP analysis of misclassified observations in the external cohort.
 
 ## Requirements
 
