@@ -6,53 +6,45 @@ A machine learning pipeline for binary classification of febrile neutropenia (FN
 
 | File | Description |
 |------|-------------|
-| `Describing_variables_and_time-to-event-analyses`| Data analyses before model developing 
+| `Describing_variables_and_time-to-event-analyses.R` | Descriptive analyses and time-to-event analyses before model development |
 | `AML_infection_model_data.ipynb` | Data preprocessing and preparation for modelling |
-| `AML_XGB_classifier_all_variables.ipynb` | XGBoost classifier trained on all features |
-| `SHAP_XGBClassifier_plot_function.R` | SHAP summary plots for the all-variable model |
-| `SHAP_contributions.R` | Per-feature SHAP contribution plots (all variables) |
-| `AML_XGB_classifier_SHAP_top_variables.ipynb` | Refined XGBoost classifier using top SHAP-selected features |
+| `AML_XGB_classifier_all_variables.ipynb` | XGBoost classifier trained on all features; creates the train/test split used downstream |
+| `SHAP_contributions.R` | Computes SHAP contributions for the all-variable model and selects features above the SHAP threshold |
+| `AML_XGB_classifier_SHAP_top_variables.ipynb` | Refined XGBoost classifier using the SHAP-selected features, with evaluation, decision curve analysis and regression to event days |
 | `TOP_SHAP_XGBClassifier_plot_function.R` | SHAP summary plots for the top-variable model |
-| `TOPXGB_shap_contibutions_.R` | Per-feature SHAP contribution plots (top variables) |
-| `y_is_zero_topshap_contibutions.R` | SHAP contributions for observations where y = 0 |
-| `TOPXGB_SHAP_wrongly_classified_test.R` | SHAP analysis of misclassified observations |
-| `TOPXGB_SHAP_wrongly_classified_density_test.R` | Density-based SHAP analysis of misclassified observations |
+| `TOPXGB_SHAP_wrongly_classified_density_test.R` | SHAP analysis of misclassified test-set observations, with density plots |
 
 ## Running Order
 
-The pipeline should be run in the following order. Steps grouped together belong to the same analysis stage.
+### Stage 0 -- Analyses before model development
 
-### Stage 0 -- Analyses before model developing
-
-0. **`Describing_variables_and_time-to-event-analyses`** -- Baseline characteristics and time-to-event analyses.
+0. **`Describing_variables_and_time-to-event-analyses.R`** -- Baseline characteristics, figures and time-to-event analyses.
 
 ### Stage 1 -- Data preparation
 
-1. **`AML_infection_model_data.ipynb`** -- Preprocess raw data and export model-ready datasets.
+1. **`AML_infection_model_data.ipynb`** -- Preprocess raw data and export model-ready datasets (`model_data_*.csv`).
 
 ### Stage 2 -- Full model (all variables)
 
-2. **`AML_XGB_classifier_all_variables.ipynb`** -- Train and evaluate XGBoost with all features.
-3. **`SHAP_XGBClassifier_plot_function.R`** -- Generate SHAP summary plots.
-4. **`SHAP_contributions.R`** -- Generate per-feature SHAP contribution plots.
+2. **`AML_XGB_classifier_all_variables.ipynb`** -- Train and evaluate XGBoost with all features. Saves the data splits, `xgb_model.json` and `features.json`.
+3. **`SHAP_contributions.R`** -- Compute SHAP values and write `SHAP_selected_features_over_0.01.csv`.
 
 ### Stage 3 -- Refined model (top SHAP-selected variables)
 
-5. **`AML_XGB_classifier_SHAP_top_variables.ipynb`** -- Train and evaluate XGBoost with SHAP-selected features.
-6. **`TOP_SHAP_XGBClassifier_plot_function.R`** -- Generate SHAP summary plots.
-7. **`TOPXGB_shap_contibutions_.R`** -- Generate per-feature SHAP contribution plots.
-8. **`y_is_zero_topshap_contibutions.R`** -- Analyse SHAP contributions for y = 0 observations.
-9. **`TOPXGB_SHAP_wrongly_classified_test.R`** -- Analyse SHAP values of misclassified observations.
-10. **`TOPXGB_SHAP_wrongly_classified_density_test.R`** -- Density-based analysis of misclassified observations.
+4. **`AML_XGB_classifier_SHAP_top_variables.ipynb`** -- Train and evaluate XGBoost with the SHAP-selected features. Saves `simple_xgb_model.json`, `simple_features.json`, `X_test_drop.csv` and `eval_df.csv`.
+5. **`TOP_SHAP_XGBClassifier_plot_function.R`** -- Generate SHAP summary plots.
+6. **`TOPXGB_SHAP_wrongly_classified_density_test.R`** -- Analyse SHAP values of misclassified observations.
 
-> **Note:** If SHAP values for y = 0 are not stored, step 5 may fail. In that case, run step 8 (`y_is_zero_topshap_contibutions.R`) first, then re-run steps 5--8.
+### Stage 4 -- External validation
+
+Code for the external validation cohort will be added.
 
 ## Requirements
 
-**Python** (notebooks): `pandas`, `numpy`, `matplotlib`, `seaborn`, `xgboost`, `scikit-learn`, `imblearn`, `scipy`, `shap`
+**Python** (notebooks): `pandas`, `numpy`, `matplotlib`, `seaborn`, `xgboost`, `scikit-learn`, `imblearn`, `scipy`, `statsmodels`, `scikit-optimize`
 
-**R** (scripts): `xgboost`, `data.table`, `ggplot2`, `shapviz`, `jsonlite`, `cli`
+**R** (scripts): `xgboost`, `SHAPforxgboost`, `data.table`, `dplyr`, `ggplot2`, `jsonlite`, `scales`, `patchwork`, `cli`
 
 ## Data
 
-All file paths in the code use placeholder paths (`/path/to/...`). Update these to point to your local data directory before running.
+The patient data are not included in this repository. All file paths in the code use placeholder paths (`/path/to/...`). Update these to point to your local data directory before running.

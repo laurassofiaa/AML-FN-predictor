@@ -24,7 +24,7 @@ POINT_ALPHA <- 0.85
 FOLDER_TAG <- "NOimputation"
 TRAIN_TAG  <- "train2_test2"
 
-ROOT <- "/path/to/infection_model"
+ROOT <- "/path/to"
 DATA_PATH <- file.path(ROOT, "data", TRAIN_TAG, FOLDER_TAG)
 
 # input files (CHANGE if your filenames differ)
@@ -43,14 +43,73 @@ PLOT_HIGHLIGHT <- file.path(PLOT_BASE, "highlight_wrong_density")
 
 dir.create(PLOT_HIGHLIGHT, recursive = TRUE, showWarnings = FALSE)
 
+# ---------------------------------------------------------------------------
+# Source-data export for figures (journal request). Base R + ggplot_build.
+# ---------------------------------------------------------------------------
+PLOT_DATA_PATH    <- file.path(ROOT, "plots", TRAIN_TAG, FOLDER_TAG, "plot_data")
+PLOT_DATA_DENSITY <- file.path(PLOT_DATA_PATH, "highlight_wrong_density")
+dir.create(PLOT_DATA_DENSITY, recursive = TRUE, showWarnings = FALSE)
+
+write_plot_data_one <- function(stem, df, out_dir = PLOT_DATA_PATH,
+                                index_dir = PLOT_DATA_PATH, note = "") {
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(out_dir, paste0(stem, ".csv"))
+  # NB: plain write.csv is correct. fileEncoding="UTF-8" truncates non-ASCII
+  # under a non-UTF-8 locale, and enc2utf8() double-encodes it.
+  write.csv(df, path, row.names = FALSE, na = "")
+  if (any(grepl("<U\\+[0-9A-Fa-f]{4}>", readLines(path, warn = FALSE))))
+    warning("plot_data: labels like °C / 10³/L were escaped; check Sys.getlocale('LC_CTYPE')")
+  rel <- sub(paste0(normalizePath(index_dir, mustWork = FALSE), "/"), "",
+             normalizePath(path, mustWork = FALSE), fixed = TRUE)
+  idx <- file.path(index_dir, "plot_data_index.csv")
+  new <- data.frame(figure = stem, part = "", file = rel,
+                    n_rows = as.character(nrow(df)),
+                    columns = paste(names(df), collapse = "; "),
+                    note = note, stringsAsFactors = FALSE)
+  if (file.exists(idx)) {
+    old <- utils::read.csv(idx, colClasses = "character")
+    old <- old[old$figure != stem, , drop = FALSE]     # rerun replaces
+    new <- rbind(old[, names(new), drop = FALSE], new)
+  }
+  write.csv(new, idx, row.names = FALSE, na = "")
+  message("[plot_data] ", rel)
+  invisible(path)
+}
+
+# KEEP IN SYNC with apply_feature_x_scale(): ggplot_build() returns x in
+# TRANSFORMED space, so pseudo-log features must be inverted back.
+# scales::pseudo_log_trans: fwd = asinh(x/(2*sigma))/log(base)
+#                           inv = 2*sigma*sinh(x*log(base))
+.pseudo_log_inv <- function(sigma, base = 10) function(x) 2*sigma*sinh(x*log(base))
+.x_axis_inverse <- function(feat) {
+  if (identical(feat, "b_leuk")) return(.pseudo_log_inv(1e-3))
+  if (identical(feat, "b_neut")) return(.pseudo_log_inv(1e-2))
+  identity
+}
+
+.layer_built <- function(g, stat_class) {
+  b <- ggplot2::ggplot_build(g)
+  for (i in seq_along(g$layers))
+    if (identical(class(g$layers[[i]]$stat)[1], stat_class)) return(b$data[[i]])
+  NULL
+}
+
+.fill_to_label <- function(d, dens_cols) {
+  lab <- names(dens_cols)[match(d$fill, unname(dens_cols))]
+  if (any(is.na(lab)) && "group" %in% names(d)) {
+    j <- is.na(lab); lab[j] <- names(dens_cols)[pmin(d$group[j], length(dens_cols))]
+  }
+  lab
+}
+
 # number of top features to plot (same “top” idea as your training script)
-TOP_K <- 6L
+TOP_K <- 7L
 
 # Downsample for plotting (set NULL to disable)
 MAX_POINTS_PER_PLOT <- 10000L
 
 # Colours for errors
-FP_COLOUR <- "red"
+FP_COLOUR <- "#E69F00"
 FN_COLOUR <- "deepskyblue"
 
 # Reproducibility for sampling (plotting only)
@@ -140,25 +199,25 @@ add_risk_arrow_outside_from_zero <- function(
   # text placement
   if (side == "right") {
     txt_low <- grid::textGrob(low_lbl,
-                              x = x_out + grid::unit(3, "mm"),
+                              x = x_out + grid::unit(4, "mm"),
                               y = grid::unit(y_dn_end, "npc") * 1.5,
-                              rot = 90, gp = grid::gpar(cex = 0.7)
+                              rot = 90, gp = grid::gpar(cex = 1.2)
     )
     txt_high <- grid::textGrob(high_lbl,
-                               x = x_out + grid::unit(3, "mm"),
+                               x = x_out + grid::unit(4, "mm"),
                                y = grid::unit(y_up_end, "npc") * 0.9,
-                               rot = 90, gp = grid::gpar(cex = 0.7)
+                               rot = 90, gp = grid::gpar(cex = 1.2)
     )
   } else {
     txt_low <- grid::textGrob(low_lbl,
-                              x = x_out - grid::unit(3, "mm"),
+                              x = x_out - grid::unit(4, "mm"),
                               y = grid::unit(y_dn_end, "npc") * 1.5,
-                              rot = 90, gp = grid::gpar(cex = 0.7), just = "right"
+                              rot = 90, gp = grid::gpar(cex = 1.2), just = "right"
     )
     txt_high <- grid::textGrob(high_lbl,
-                               x = x_out - grid::unit(3, "mm"),
+                               x = x_out - grid::unit(4, "mm"),
                                y = grid::unit(y_up_end, "npc") * 0.9,
-                               rot = 90, gp = grid::gpar(cex = 0.7), just = "right"
+                               rot = 90, gp = grid::gpar(cex = 1.2), just = "right"
     )
   }
   
@@ -188,7 +247,7 @@ make_manual_legend_grob <- function(
     fn_lbl = "False negative",
     mean_lbl = "Mean",
     correct_col = "black",
-    fp_col = "red",
+    fp_col = "#E69F00",
     fn_col = "deepskyblue",
     mean_col = "darkgray",
     dot_mm = 3
@@ -197,18 +256,24 @@ make_manual_legend_grob <- function(
   x_symbol <- grid::unit(0.12, "npc")
   x_text   <- grid::unit(0.22, "npc")
   
-  y_title <- grid::unit(0.88, "npc")
-  y1 <- grid::unit(0.68, "npc")
+#  y_title <- grid::unit(0.88, "npc")
+#  y1 <- grid::unit(0.68, "npc")
+#  y2 <- grid::unit(0.50, "npc")
+#  y3 <- grid::unit(0.32, "npc")
+#  y4 <- grid::unit(0.14, "npc")
+  
+  y_title <- grid::unit(0.90, "npc")
+  y1 <- grid::unit(0.72, "npc")
   y2 <- grid::unit(0.50, "npc")
-  y3 <- grid::unit(0.32, "npc")
-  y4 <- grid::unit(0.14, "npc")
+  y3 <- grid::unit(0.28, "npc")
+  y4 <- grid::unit(0.06, "npc")
   
   bg <- grid::nullGrob()
   
   ttl <- grid::textGrob(
     title, x = x_text, y = y_title,
     just = c("left", "center"),
-    gp = grid::gpar(fontface = "bold", cex = 0.9, col = "black")
+    gp = grid::gpar(fontface = "bold", cex = 1.5, col = "black")
   )
   
   # Symbols
@@ -230,16 +295,16 @@ make_manual_legend_grob <- function(
   
   # Labels
   t1 <- grid::textGrob(correct_lbl, x = x_text, y = y1, just = c("left", "center"),
-                       gp = grid::gpar(cex = 0.85, col = "black")
+                       gp = grid::gpar(cex = 1.3, col = "black")
   )
   t2 <- grid::textGrob(fp_lbl, x = x_text, y = y2, just = c("left", "center"),
-                       gp = grid::gpar(cex = 0.85, col = "black")
+                       gp = grid::gpar(cex = 1.3, col = "black")
   )
   t3 <- grid::textGrob(fn_lbl, x = x_text, y = y3, just = c("left", "center"),
-                       gp = grid::gpar(cex = 0.85, col = "black")
+                       gp = grid::gpar(cex = 1.3, col = "black")
   )
   t4 <- grid::textGrob(mean_lbl, x = x_text, y = y4, just = c("left", "center"),
-                       gp = grid::gpar(cex = 0.85, col = "black")
+                       gp = grid::gpar(cex = 1.3, col = "black")
   )
   
   grid::grobTree(bg, ttl, dot_correct, dot_fp, dot_fn, line_mean, t1, t2, t3, t4)
@@ -297,7 +362,8 @@ apply_feature_x_scale <- function(g, feat, x_title) {
 }
 
 # Build one combined plot: top density + main scatter + right density
-build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_map) {
+build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_map,
+                                    plot_data = FALSE, plot_data_points = TRUE) {
   # Labels for densities
   sl$pt_label <- ifelse(is.na(sl$err_type), "Correct", sl$err_type)
   sl$pt_label <- factor(sl$pt_label, levels = c("Correct", "False positive", "False negative"))
@@ -375,10 +441,10 @@ build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_ma
     ggplot2::ylab("SHAP value") +
     ggplot2::coord_cartesian(xlim = xlim, ylim = ylim, clip = "off") +
     ggplot2::theme(
-      axis.text.x  = ggplot2::element_text(size = 12, colour = "black"),
-      axis.text.y  = ggplot2::element_text(size = 12, colour = "black"),
-      axis.title.x = ggplot2::element_text(size = 14, colour = "black"),
-      axis.title.y = ggplot2::element_text(size = 14, colour = "black"),
+      axis.text.x  = ggplot2::element_text(size = 17, colour = "black"),
+      axis.text.y  = ggplot2::element_text(size = 17, colour = "black"),
+      axis.title.x = ggplot2::element_text(size = 17, colour = "black"),
+      axis.title.y = ggplot2::element_text(size = 17, colour = "black"),
       axis.line    = ggplot2::element_line(colour = "black"),
       panel.grid.major = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
@@ -389,12 +455,13 @@ build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_ma
   
   # Apply x-axis style (log-ish for leuk/neut etc.)
   g_main <- apply_feature_x_scale(g_main, feat, x_title)
+  g_main_pre_annot <- g_main   # capture before the risk arrow + legend box
   
   # Risk arrow: put it on LEFT to avoid colliding with right-side density
   g_main <- add_risk_arrow_outside_from_zero(g_main, gap_npc = 0.025, trim_npc = 0.06, offset_mm = 8, side = "right")
   
   # Add your manual legend box (feature-specific positioning)
-  legend_pos_default <- list(x = 0.72, y = 0.52, w = 0.26, h = 0.24)
+  legend_pos_default <- list(x = 0.7, y = 0.52, w = 0.26, h = 0.24)
   lp <- legend_pos_map[[feat]]
   if (is.null(lp)) lp <- legend_pos_default
   
@@ -452,6 +519,56 @@ build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_ma
   
   combined <- (top_row / bottom_row) +
     patchwork::plot_layout(heights = c(top_h, 1))
+  
+  # ---- source data for the journal --------------------------------------
+  if (isTRUE(plot_data)) {
+    stem  <- paste0("SHAP_test_highlight_wrong_density_", feat)
+    inv   <- .x_axis_inverse(feat)
+    blank <- function(n) rep(NA_real_, n)
+    parts <- list()
+    
+    if (isTRUE(plot_data_points)) parts[[length(parts)+1]] <- data.frame(
+      component = "point", point_class = as.character(sl$pt_label),
+      feature_value = as.numeric(sl[[ycol]]), shap_value = as.numeric(sl[[xcol]]),
+      shap_value_fitted = blank(nrow(sl)), density = blank(nrow(sl)),
+      density_scaled = blank(nrow(sl)), n = blank(nrow(sl)), stringsAsFactors = FALSE)
+    
+    lo <- .layer_built(g_main_pre_annot, "StatSmooth")
+    if (!is.null(lo)) parts[[length(parts)+1]] <- data.frame(
+      component = "loess", point_class = NA_character_,
+      feature_value = inv(lo$x), shap_value = blank(nrow(lo)),
+      shap_value_fitted = lo$y, density = blank(nrow(lo)),
+      density_scaled = blank(nrow(lo)), n = blank(nrow(lo)), stringsAsFactors = FALSE)
+    
+    dt <- .layer_built(g_top, "StatDensity")
+    if (!is.null(dt)) parts[[length(parts)+1]] <- data.frame(
+      component = "density_feature_value", point_class = .fill_to_label(dt, dens_cols),
+      feature_value = inv(dt$x), shap_value = blank(nrow(dt)),
+      shap_value_fitted = blank(nrow(dt)), density = dt$density,
+      density_scaled = if ("scaled" %in% names(dt)) dt$scaled else blank(nrow(dt)),
+      n = if ("n" %in% names(dt)) as.numeric(dt$n) else blank(nrow(dt)),
+      stringsAsFactors = FALSE)
+    
+    dr <- .layer_built(g_right, "StatDensity")
+    if (!is.null(dr)) parts[[length(parts)+1]] <- data.frame(
+      component = "density_shap_value", point_class = .fill_to_label(dr, dens_cols),
+      feature_value = blank(nrow(dr)), shap_value = dr$x,
+      shap_value_fitted = blank(nrow(dr)), density = dr$density,
+      density_scaled = if ("scaled" %in% names(dr)) dr$scaled else blank(nrow(dr)),
+      n = if ("n" %in% names(dr)) as.numeric(dr$n) else blank(nrow(dr)),
+      stringsAsFactors = FALSE)
+    
+    write_plot_data_one(
+      stem, do.call(rbind, parts), out_dir = PLOT_DATA_DENSITY,
+      note = paste0("feature=", feat, "; x-axis: ",
+                    gsub("\\s*\n\\s*", " ", x_title),
+                    "; points plotted=", nrow(sl),
+                    " (correct=", nrow(sl_correct), ", FP=", nrow(sl_fp),
+                    ", FN=", nrow(sl_fn), ")",
+                    "; x transform=",
+                    if (!identical(inv, identity)) "pseudo-log (back-transformed)" else "none",
+                    "; density adjust=1.1; smooth=loess, se=FALSE"))
+  }
   
   combined
 }
@@ -531,26 +648,45 @@ shap_long_test$err_type <- dt_test_pred$err_type[shap_long_test$ID]
 # Nice axis titles (edit as needed)
 # -------------------------------
 feature_titles <- c(
-  "temperature"                 = "Temperature (°C)",
-  "b_neut"                      = "ANC (10³/L)",
-  "b_leuk"                      = "WBC (10³/L)",
-  "temperature_trend_from_2_d"  = "Temperature\n2-day trend (°C)",
-  "b_leuk_trend_from_7_d"       = "WBC 7-day trend (10³/L)",
-  "p_crp_trend_from_3_d"        = "CRP 3-day trend (mg/L)",
-  "sykli_IND"                   = "Induction phase",
-  "bneut_accumulated_max_050_cycle" = "Duration of neutropenia\n(<0.5 10³/L) per cycle (days)",
-  "bneut_accumulated_max_050_total" = "Duration of neutropenia\n(<0.5 10³/L) per regimen (days)",
-  "countdown"                   = "Time from treatment initiation (days)"
-)
+  "temperature"                       = "Body temperature (°C)",
+  "b_neut"                            = "ANC (10⁹/L)",
+  "b_leuk"                            = "WBC (10⁹/L)",
+  "temperature_trend_from_2_d"        = "Temperature \n2-day trend (°C)",
+  'b_leuk_trend_from_7_d'             = "WBC 7-day trend (10⁹/L)",
+  'p_crp_trend_from_3_d'              = "1–3-day CRP trend (mg/L)",
+  'sykli_IND'                         = "Induction phase",
+  "bneut_accumulated_max_050_cycle"   = "Duration of ANC (≤0.5 10⁹/L)\nper cycle (days)",
+  "bneut_accumulated_max_050_total"   = "Duration of ANC (≤0.5 10⁹/L)\nper regimen (days)",
+  "bneut_accumulated_max_005_total"   = "Duration of ANC (≤0.05 10⁹/L)\nper regimen (days)",
+  "countdown"                         = "Time since \ncycle start (days)",
+  "cycle_number"                      = "Treatment cycle number",
+  
+  "e_mcv_mean_last_values_7_days"     = "4–7-day mean MCV (fL)",
+  "p_tt_mean_last_values_7_days"      = "Tromboplastin time mean 7-day trend (%)",
+  "p_crp_trend_from_7_d"              = "4–7-day CRP trend (mg/L)",
+  "p_afos_mean_last_values_7_days"    = "ALP mean 7-day trend (U/L)",
+  "p_k_mean_last_values_7_days"       = "K mean 7-day trend (mmol/L)",
+  "bm_blast_p"                        = "BM blast (%)",
+  "b_trom"                            = "PLT (10⁹/L)",
+  "b_trom_trend_from_7_d"             = "PLT 7-day trend (10⁹/L)",
+  "p_tt_mean_last_values_3_days"      = "Tromboplastin time mean 3-day trend (%)",
+  "b_trom_mean_last_values_7_days"    = "4–7-day PLT trend (10⁹/L)",
+  "b_neut_mean_last_values_7_days"    = "ANC mean 7-day trend (10⁹/L)",
+  "b_eryt_mean_last_values_3_days"    = "RBC mean 3-day trend (10$^12$/L)",
+  "b_ly_trend_from_7_d"               = "Lymphocytes 7-day trend (10⁹/L)",
+  
+  "ab_max_10d"                        = 'Ab initiated within the last 10 days'
+  
+  )
 
 # manual legend positions per feature (0..1 npc inside MAIN panel)
 legend_pos_map <- list(
-  temperature            = list(x = 0.75, y = 0.03, w = 0.28, h = 0.24),
+  temperature            = list(x = 0.65, y = 0.03, w = 0.28, h = 0.24),
   b_leuk                 = list(x = 0.0001, y = 0.03, w = 0.005, h = 0.24),
   b_neut                 = list(x = 0.0005, y = 0.03, w = 0.03,  h = 0.24),
-  countdown              = list(x = 0.75, y = 0.03, w = 0.28, h = 0.24),
-  p_crp_trend_from_3_d   = list(x = 0.75, y = 0.03, w = 0.28, h = 0.24),
-  sykli_IND              = list(x = 0.75, y = 0.03, w = 0.28, h = 0.24)
+  countdown              = list(x = 0.65, y = 0.03, w = 0.28, h = 0.24),
+  p_crp_trend_from_3_d   = list(x = 0.65, y = 0.03, w = 0.28, h = 0.24),
+  sykli_IND              = list(x = 0.65, y = 0.03, w = 0.28, h = 0.24)
 )
 
 # -------------------------------
@@ -594,7 +730,8 @@ for (k in seq_along(top_feats)) {
     x_title = x_title,
     xcol = xcol,
     ycol = ycol,
-    legend_pos_map = legend_pos_map
+    legend_pos_map = legend_pos_map,
+    plot_data = TRUE                         # <-- NEW
   )
   
   out_all <- file.path(PLOT_HIGHLIGHT, paste0("SHAP_test_highlight_wrong_density_", feat, ".png"))
