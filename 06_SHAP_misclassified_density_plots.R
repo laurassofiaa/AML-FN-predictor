@@ -572,7 +572,7 @@ build_density_shap_plot <- function(sl, feat, x_title, xcol, ycol, legend_pos_ma
   
   combined
 }
-
+ 
 # -------------------------------
 # Load model + features
 # -------------------------------
