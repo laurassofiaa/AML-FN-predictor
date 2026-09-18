@@ -689,6 +689,17 @@ legend_pos_map <- list(
   sykli_IND              = list(x = 0.65, y = 0.03, w = 0.28, h = 0.24)
 )
 
+# ---------
+# Figure 4A-G  (SHAP dependence plots, test set; one file per feature)
+# ---------
+# A: WBC (b_leuk)
+# B: Body temperature (temperature)
+# C: Time since cycle start (countdown)
+# D: 4-7-day CRP trend (p_crp_trend_from_7_d)
+# E: ANC (b_neut)
+# F: Induction phase (sykli_IND)
+# G: Ab initiated within the last 10 days (ab_max_10d)
+
 # -------------------------------
 # Plot loop (ONLY method B now: all points + highlight FP/FN + marginal densities)
 # -------------------------------

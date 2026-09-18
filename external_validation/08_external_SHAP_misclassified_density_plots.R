@@ -735,6 +735,17 @@ cat("density stat:", class(gd$layers[[1]]$stat)[1], "\n")
 cat("density cols:", paste(names(ggplot2::ggplot_build(gd)$data[[1]]), collapse = ", "), "\n")
 cat("density fills:", paste(unique(ggplot2::ggplot_build(gd)$data[[1]]$fill), collapse = ", "), "\n")
 
+# ----------------------------
+# Supplementary Figure 11A-G  (SHAP dependence plots, external validation cohort; one file per feature)
+# ----------------------------
+# A: WBC (b_leuk)
+# B: Body temperature (temperature)
+# C: Time since cycle start (countdown)
+# D: 4-7-day CRP trend (p_crp_trend_from_7_d)
+# E: ANC (b_neut)
+# F: Induction phase (sykli_IND)
+# G: Ab initiated within the last 10 days (ab_max_10d)
+
 # -------------------------------
 # Plot loop (ONLY method B now: all points + highlight FP/FN + marginal densities)
 # -------------------------------

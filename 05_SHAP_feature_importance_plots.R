@@ -265,8 +265,17 @@ if ("sykli_IND" %in% colnames(dt_xx)) {
   X_KONS <- as.matrix(dt_KONS)
   X_IND  <- as.matrix(dt_IND)
   
+  # ---------
+  # Figure 3G  (mean |SHAP| contribution, all patient-days)
+  # ---------
   analyze_shap_group(X_mat,   "ALL",  PLOT_PATH, xgb_mod, top_n = 10, plot_data = TRUE)
+  # ----------------------------
+  # Supplementary Figure 9D  (mean |SHAP| contribution, consolidation)
+  # ----------------------------
   analyze_shap_group(X_KONS, "KONS", PLOT_PATH, xgb_mod, top_n = 10)
+  # ----------------------------
+  # Supplementary Figure 9C  (mean |SHAP| contribution, induction)
+  # ----------------------------
   analyze_shap_group(X_IND,  "IND",  PLOT_PATH, xgb_mod, top_n = 10)
   
 } else {
